@@ -13,6 +13,10 @@
       "destination": "https://image.tmdb.org/t/p/:path*"
     },
     {
+      "source": "/tvdb/artworks/:path*",
+      "destination": "https://artworks.thetvdb.com/:path*"
+    },
+    {
       "source": "/:path*",
       "destination": "/api/index.js"
     }

@@ -10,12 +10,14 @@
 - 自动透传常见请求头（含 `Authorization`）
 - `GET` 请求内存缓存（默认 10 分钟）
 - TMDB 图片直连重写（`/tmdb/t/p/*` -> `image.tmdb.org/t/p/*`）
+- TheTVDB 图片直连重写（`/tvdb/artworks/*` -> `artworks.thetvdb.com/*`）
 
 ## 路由规则
 
 当前 `vercel.json` 规则如下：
 
 - `/tmdb/t/p/:path*` -> `https://image.tmdb.org/t/p/:path*`
+- `/tvdb/artworks/:path*` -> `https://artworks.thetvdb.com/:path*`
 - `/:path*` -> `/api/index.js`
 
 `api/index.js` 内部分发：
@@ -36,7 +38,9 @@
 2. 在 Vercel 新建项目并选择该仓库
 3. 部署完成后绑定自定义域名（推荐）
 
-## 请求示例
+## 使用方法
+
+> 某些场景下无法直接更改请求域名，可以使用mitmproxy进行拦截转发。[mitmproxy Docker 示例](./docs/mitmproxy-docker-example.md)
 
 ### TMDB
 
@@ -76,15 +80,33 @@
 }
 ```
 
-## mitmproxy 映射示例
+### TheTVDB 图片
 
-如果客户端不支持修改基础域名，可用 `map_remote`：
+原始图片：
 
-```bash
---set map_remote='|^https://api\.themoviedb\.org/|https://${PROXY_HOST}/tmdb/|'
---set map_remote='|^https://image\.tmdb\.org/|https://${PROXY_HOST}/tmdb/|'
---set map_remote='|^https://api4\.thetvdb\.com/v4/|https://${PROXY_HOST}/tvdb/v4/|'
-```
+`https://artworks.thetvdb.com/banners/movies/103937/backgrounds/103937.jpg`
+
+代理后：
+
+`https://<YOUR_PROXY_HOST>/tvdb/artworks/banners/movies/103937/backgrounds/103937.jpg`
+
+## 代理自测脚本（Node + axios）
+
+仓库内置脚本：`scripts/test-proxy.js`
+
+使用步骤：
+
+1. 复制配置模板：`scripts/.env.example` -> `scripts/.env`
+2. 至少设置：`PROXY_HOST`
+3. 可选设置：`TMDB_API_KEY`、`TVDB_API_KEY`、`TVDB_PIN`、`TVDB_ARTWORK_PATH`
+4. 执行：`npm run test:proxy`
+
+说明：
+
+- `PROXY_HOST` 未设置会直接提示缺少必填配置
+- 如果未设置 `TMDB_API_KEY` / `TVDB_API_KEY`，脚本会验证代理是否能返回上游错误信息（而不是只测成功场景）
+- 脚本会额外检测 `GET /tvdb/artworks/{path}`（默认可通过 `TVDB_ARTWORK_PATH` 覆盖）
+- 输出会自动脱敏 `api_key` 查询参数和 TVDB token
 
 ## 常见问题
 
