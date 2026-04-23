@@ -111,6 +111,170 @@ mitmweb 面板默认地址：
 
 并信任 mitmproxy 生成的根证书（`mitmproxy-ca-cert.pem`）。
 
+### 示例
+
+#### emby
+
+> 示例仅供参考
+
+```yaml
+services:
+  mitmproxy:
+    image: mitmproxy/mitmproxy:latest
+    container_name: emby-mitmproxy
+    restart: unless-stopped
+    expose:
+      - "8080"
+    ports:
+      - "8081:8081"
+    command:
+      - mitmweb
+      - --listen-host
+      - 0.0.0.0
+      - --listen-port
+      - "8080"
+      - --set
+      - confdir=/home/mitmproxy/.mitmproxy
+      - --set
+      - web_host=0.0.0.0
+      - --set
+      - web_port=8081
+      - --set
+      - web_open_browser=false
+      - --set
+      - web_password=${MITMWEB_PASSWORD}
+      - --set
+      - connection_strategy=lazy
+      - --set
+      - "map_remote=|^https://api\\.themoviedb\\.org(:443)?/|https://${PROXY_HOST}/tmdb/"
+      - --set
+      - "map_remote=|^https://image\\.tmdb\\.org(:443)?/|https://${PROXY_HOST}/tmdb/"
+      - --set
+      - "map_remote=|^https://api4\\.thetvdb\\.com(:443)?/v4/|https://${PROXY_HOST}/tvdb/v4/"
+      - --set
+      - "map_remote=|^https://artworks\\.thetvdb\\.com(:443)?/|https://${PROXY_HOST}/tvdb/artworks/"
+      - --set
+      - show_ignored_hosts=true
+    volumes:
+      - ./mitmproxy:/home/mitmproxy/.mitmproxy
+
+  emby:
+    image: emby/embyserver:latest
+    container_name: emby
+    user: "0:0"
+    depends_on:
+      - mitmproxy
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+    environment:
+      HTTP_PROXY: http://mitmproxy:8080
+      HTTPS_PROXY: http://mitmproxy:8080
+      NO_PROXY: localhost,127.0.0.1,::1,host.docker.internal,mitmproxy
+      http_proxy: http://mitmproxy:8080
+      https_proxy: http://mitmproxy:8080
+      no_proxy: localhost,127.0.0.1,::1,host.docker.internal,mitmproxy
+    volumes:
+      - /opt/emby/config:/config
+      - /opt/emby/cache:/cache
+      - /opt/emby/media:/media:ro
+      - /opt/mitmproxy:/mitmproxy-ca:ro
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        until [ -f /mitmproxy-ca/mitmproxy-ca-cert.pem ]; do
+          echo "waiting for mitmproxy CA..."
+          sleep 2
+        done
+        cp /mitmproxy-ca/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/mitmproxy-ca-cert.crt
+        update-ca-certificates || true
+        exec /system/EmbyServer
+```
+
+#### jellyfin
+
+> 示例仅供参考
+
+```yaml
+services:
+  mitmproxy:
+    image: mitmproxy/mitmproxy:latest
+    container_name: jellyfin-mitmproxy
+    restart: unless-stopped
+    expose:
+      - "8080"
+    ports:
+      - "8081:8081"
+    command:
+      - mitmweb
+      - --listen-host
+      - 0.0.0.0
+      - --listen-port
+      - "8080"
+      - --set
+      - confdir=/home/mitmproxy/.mitmproxy
+      - --set
+      - web_host=0.0.0.0
+      - --set
+      - web_port=8081
+      - --set
+      - web_open_browser=false
+      - --set
+      - web_password=${MITMWEB_PASSWORD}
+      - --set
+      - connection_strategy=lazy
+      - --set
+      - "map_remote=|^https://api\\.themoviedb\\.org(:443)?/|https://${PROXY_HOST}/tmdb/"
+      - --set
+      - "map_remote=|^https://image\\.tmdb\\.org(:443)?/|https://${PROXY_HOST}/tmdb/"
+      - --set
+      - "map_remote=|^https://api4\\.thetvdb\\.com(:443)?/v4/|https://${PROXY_HOST}/tvdb/v4/"
+      - --set
+      - "map_remote=|^https://artworks\\.thetvdb\\.com(:443)?/|https://${PROXY_HOST}/tvdb/artworks/"
+      - --set
+      - show_ignored_hosts=true
+    volumes:
+      - ./mitmproxy:/home/mitmproxy/.mitmproxy
+
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    depends_on:
+      - mitmproxy
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+    environment:
+      HTTP_PROXY: http://mitmproxy:8080
+      HTTPS_PROXY: http://mitmproxy:8080
+      NO_PROXY: localhost,127.0.0.1,::1,host.docker.internal,mitmproxy
+      http_proxy: http://mitmproxy:8080
+      https_proxy: http://mitmproxy:8080
+      no_proxy: localhost,127.0.0.1,::1,host.docker.internal,mitmproxy
+    volumes:
+      - /opt/jellyfin/config:/config
+      - /opt/jellyfin/cache:/cache
+      - /opt/jellyfin/media:/media:ro
+      - ./mitmproxy:/mitmproxy-ca:ro
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+```
+
+容器启动后，执行一次证书导入并重启 Jellyfin：
+
+```bash
+docker exec -it jellyfin /bin/sh -lc "cp /mitmproxy-ca/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/mitmproxy-ca-cert.crt && update-ca-certificates"
+docker restart jellyfin
+```
+
+如果镜像里没有 `update-ca-certificates`，需要先在镜像内安装 `ca-certificates`（或改为自定义镜像预装）。
+
+
 ## 常见错误与修正
 
 ### 1) `Invalid filter expression`
@@ -139,24 +303,3 @@ map_remote=|^https://api\.themoviedb\.org(:443)?/|https://${PROXY_HOST}/tmdb/
 ```bash
 docker compose config
 ```
-
-### 3) 返回 HTML 认证页，不是 JSON
-
-说明请求被 Vercel 访问保护拦截。  
-请确认代理域名可公开访问，或关闭相关 Deployment Protection。
-
-## 快速自检
-
-项目已提供 Node 脚本（`scripts/test-proxy.js`）：
-
-```bash
-npm install
-npm run test:proxy
-```
-
-该脚本会测试：
-
-- `POST /tvdb/v4/login`
-- `GET /tmdb/3/movie/{id}`
-- `GET /tmdb/t/p/{size}/{path}`
-- `GET /tvdb/artworks/{path}`

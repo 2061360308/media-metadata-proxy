@@ -2,6 +2,8 @@
 
 用于通过 Vercel 统一代理 **TMDB** 和 **TheTVDB**，适配 Emby、Jellyfin 等元数据刮削场景。
 
+灵感来自：[`imaliang/tmdb-proxy`](https://github.com/imaliang/tmdb-proxy)
+
 ## 功能概览
 
 - 同时代理 TMDB 与 TheTVDB
@@ -129,3 +131,4 @@
 
 - 本项目仅用于学习与个人用途，请遵守 TMDB / TheTVDB 的服务条款与授权要求。
 - 不提供任何第三方数据授权保证。
+- 妥善保护自己的代理域名，出现问题概不负责。
